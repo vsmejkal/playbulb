@@ -1,0 +1,72 @@
+<html>
+  <head>
+    <title>Playbulb Control</title>
+    <style>
+      #connect { display: block; }
+      #connect.connected::first-letter { color: green; }
+      #slider { width: 200px; }
+      #slider-label { width: 200px; text-align: center; }
+    </style>
+
+    <script>
+      var colorHandle = null;
+      var connectButton = null;
+      var slider = null;
+
+      function run() {
+        connectButton = document.querySelector("#connect");
+        connectButton.addEventListener("click", () => connect());
+
+        slider = document.querySelector("#slider");
+        slider.addEventListener("input", (e) => setValue(e.target.value));
+      }
+
+      async function connect() {
+        const PLAYBULB_DEVICE_NAME = "Playbulb";
+        const PLAYBULB_SERVICE = 0xff06;
+        const PLAYBULB_COLOR_HANDLE = 0xfffc;
+
+        const options = {
+          filters: [{name: PLAYBULB_DEVICE_NAME}],
+          optionalServices: [PLAYBULB_SERVICE]
+        }
+        const device = await navigator.bluetooth.requestDevice(options);
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(PLAYBULB_SERVICE);
+        colorHandle = await service.getCharacteristic(PLAYBULB_COLOR_HANDLE);
+
+        connectButton.classList.add("connected");
+        connectButton.innerHTML = "&#x25cf; Connected";
+      }
+
+      function setValue(value) {
+        if (!colorHandle) {
+          console.warn("Playbulb is disconnected!");
+          return;
+        }
+
+        const white = valueToLightIntensity(value);
+        const sliderLabel = document.querySelector("#slider-label");
+
+        colorHandle.writeValue(Uint8Array.of(white * 255, 0, 0, 0));
+        sliderLabel.innerHTML = sliderLabel.innerHTML.replace(/\d+/, value);
+      }
+
+      function valueToLightIntensity(value) {
+        const scale = 0.01;
+        const dim = 1.4;
+        
+        return Math.pow(scale * value, dim);
+      }
+
+      window.onload = run;
+    </script>
+  </head>
+
+  <body>
+    <h1>Playbulb Control</h1>
+    <button id="connect">Connect</button><br>
+    <input type="range" value="100" min="0" max="100" step="5" id="slider">
+    <div id="slider-label">Light: 100 %</div>
+  </body>
+</html>
